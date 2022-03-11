@@ -841,6 +841,8 @@ public class ServiceManager implements RecordListener<Service> {
     }
     
     public Service getService(String namespaceId, String serviceName) {
+        // 每个namespace对应一个Map
+        // namespace对应的Map中保存Service，key为serviceName
         if (serviceMap.get(namespaceId) == null) {
             return null;
         }
@@ -864,8 +866,11 @@ public class ServiceManager implements RecordListener<Service> {
     }
     
     private void putServiceAndInit(Service service) throws NacosException {
+        // 如果没有创建namespace对应的Map，则先初始化一个ConcurrentSkipListMap
+        // 然后再将当前service添加到ConcurrentSkipListMap中
         putService(service);
         service = getService(service.getNamespaceId(), service.getName());
+        // 为该service对应的所有集群添加一个健康检查任务
         service.init();
         consistencyService
                 .listen(KeyBuilder.buildInstanceListKey(service.getNamespaceId(), service.getName(), true), service);
