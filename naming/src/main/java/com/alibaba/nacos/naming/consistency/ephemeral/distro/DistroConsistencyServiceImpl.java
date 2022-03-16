@@ -169,72 +169,105 @@ public class DistroConsistencyServiceImpl implements EphemeralConsistencyService
     
     /**
      * Check sum when receive checksums request.
+     * Service检查服务，用于从其他节点更新已变更的Service
      *
      * @param checksumMap map of checksum
+     *                    某个服务对应的checksum
      * @param server      source server request checksum
+     *                    checksum请求的来源
      */
     public void onReceiveChecksums(Map<String, String> checksumMap, String server) {
-        
+
+        // 若已包含此节点的信息，说明正在处理（处理完毕之后会清空）
         if (syncChecksumTasks.containsKey(server)) {
             // Already in process of this server:
             Loggers.DISTRO.warn("sync checksum task already in process with {}", server);
             return;
         }
-        
+        // 将当前要处理的节点信息暂存，表示当前正在处理
         syncChecksumTasks.put(server, "1");
-        
+
         try {
-            
+
             List<String> toUpdateKeys = new ArrayList<>();
             List<String> toRemoveKeys = new ArrayList<>();
+
+            // 第一个for循环
+
+            /**
+             * 判断当前节点中哪些服务需要去远程更新
+             * 需要更新的服务将被添加至toUpdateKeys
+             */
             for (Map.Entry<String, String> entry : checksumMap.entrySet()) {
+
+                /**
+                 * 判断当前的entry(指的是服务Service)是否由本节点处理, 若是本机负责的则没必要从其他节点发送过来
+                 * 因为在本节点注册的服务最终任何新的操作都会被路由到本机，那么它的状态在本机就是最新的
+                 */
                 if (distroMapper.responsible(KeyBuilder.getServiceName(entry.getKey()))) {
                     // this key should not be sent from remote server:
                     Loggers.DISTRO.error("receive responsible key timestamp of " + entry.getKey() + " from " + server);
                     // abort the procedure:
                     return;
                 }
-                
-                if (!dataStore.contains(entry.getKey()) || dataStore.get(entry.getKey()).value == null || !dataStore
-                        .get(entry.getKey()).value.getChecksum().equals(entry.getValue())) {
+
+                // 若当前节点不存在此服务，或服务是空的，或服务的实例列表(checksum验证字符串)跟传入的不一致，则标记此服务需要更新
+                if (!dataStore.contains(entry.getKey()) ||
+                        dataStore.get(entry.getKey()).value == null ||
+                        !dataStore.get(entry.getKey()).value.getChecksum().equals(entry.getValue())) {
+                    // 添加到待更新列表
                     toUpdateKeys.add(entry.getKey());
                 }
             }
-            
+
+
+            // 第二个for循环
+
+            /**
+             * 此处用于判断当前节点已有的服务是不是当前接收的请求的来源节点负责处理的，如果是的话，就说明他是最新的不应该被删除
+             */
             for (String key : dataStore.keys()) {
-                
+                // 不是请求方处理的服务就不处理
                 if (!server.equals(distroMapper.mapSrv(KeyBuilder.getServiceName(key)))) {
                     continue;
                 }
-                
+
+                // 是请求方处理的服务但不在请求列表中，说明此服务在请求方已经被删除了
                 if (!checksumMap.containsKey(key)) {
                     toRemoveKeys.add(key);
                 }
             }
-            
-            Loggers.DISTRO
-                    .info("to remove keys: {}, to update keys: {}, source: {}", toRemoveKeys, toUpdateKeys, server);
-            
+
+            Loggers.DISTRO.info("to remove keys: {}, to update keys: {}, source: {}", toRemoveKeys, toUpdateKeys, server);
+
+            // 删掉已经变更的服务
             for (String key : toRemoveKeys) {
+                // 移除服务，并发送变更通知
                 onRemove(key);
             }
-            
+
+            // 若没有需要更新的终止此流程
             if (toUpdateKeys.isEmpty()) {
                 return;
             }
-            
+
+            // 经过上述流程的处理，目前本机缓存的DataStorage中保留的服务是：在其他节点注册的、服务。
+
             try {
-                DistroHttpCombinedKey distroKey = new DistroHttpCombinedKey(KeyBuilder.INSTANCE_LIST_KEY_PREFIX,
-                        server);
+                // 组装DistroData查询对象
+                DistroHttpCombinedKey distroKey = new DistroHttpCombinedKey(KeyBuilder.INSTANCE_LIST_KEY_PREFIX, server);
                 distroKey.getActualResourceTypes().addAll(toUpdateKeys);
+                // 从请求发送方获取最新数据
                 DistroData remoteData = distroProtocol.queryFromRemote(distroKey);
                 if (null != remoteData) {
+                    // 处理查询结果
                     processData(remoteData.getContent());
                 }
             } catch (Exception e) {
                 Loggers.DISTRO.error("get data from " + server + " failed!", e);
             }
         } finally {
+            // 全部处理完毕之后，将syncChecksumTasks中标记正在处理的节点移除
             // Remove this 'in process' flag:
             syncChecksumTasks.remove(server);
         }
@@ -242,14 +275,19 @@ public class DistroConsistencyServiceImpl implements EphemeralConsistencyService
     
     private boolean processData(byte[] data) throws Exception {
         if (data.length > 0) {
+            // 序列化将要解析的值
             Map<String, Datum<Instances>> datumMap = serializer.deserializeMap(data, Instances.class);
-            
+
+            // 此for循环主要功能是用于将获取到的Service添加到监听器列表
             for (Map.Entry<String, Datum<Instances>> entry : datumMap.entrySet()) {
+                // 遍历并放入数据仓库中
                 dataStore.put(entry.getKey(), entry.getValue());
-                
+                // ① 判断是否有当前服务的监听器，若有则触发监听器用于更新服务信息
                 if (!listeners.containsKey(entry.getKey())) {
+                    // 因为当前的类是用于处理临时节点的同步信息的（详情请看v1版本ServiceManager内部的逻辑）
                     // pretty sure the service not exist:
                     if (switchDomain.isDefaultInstanceEphemeral()) {
+                        // 根据获取的数据信息构建一个v1版本的Service对象
                         // create empty service
                         Loggers.DISTRO.info("creating service {}", entry.getKey());
                         Service service = new Service();
@@ -261,25 +299,28 @@ public class DistroConsistencyServiceImpl implements EphemeralConsistencyService
                         // now validate the service. if failed, exception will be thrown
                         service.setLastModifiedMillis(System.currentTimeMillis());
                         service.recalculateChecksum();
-                        
+                        // 尤其是要注意此处的key类型，因为listener集合内部可能存放多种类型的监听器
+                        // ② 获取ServiceManager，因为其也是一个监听器
                         // The Listener corresponding to the key value must not be empty
                         RecordListener listener = listeners.get(KeyBuilder.SERVICE_META_KEY_PREFIX).peek();
                         if (Objects.isNull(listener)) {
                             return false;
                         }
+                        // 触发ServiceManager的onChange事件，
                         listener.onChange(KeyBuilder.buildServiceMetaKey(namespaceId, serviceName), service);
                     }
                 }
             }
-            
+
+            // 此for循环主要用于触发监听器列表中的Service监听器
             for (Map.Entry<String, Datum<Instances>> entry : datumMap.entrySet()) {
-                
+
                 if (!listeners.containsKey(entry.getKey())) {
                     // Should not happen:
                     Loggers.DISTRO.warn("listener of {} not found.", entry.getKey());
                     continue;
                 }
-                
+
                 try {
                     for (RecordListener listener : listeners.get(entry.getKey())) {
                         listener.onChange(entry.getKey(), entry.getValue().value);
@@ -288,7 +329,7 @@ public class DistroConsistencyServiceImpl implements EphemeralConsistencyService
                     Loggers.DISTRO.error("[NACOS-DISTRO] error while execute listener of key: {}", entry.getKey(), e);
                     continue;
                 }
-                
+
                 // Update data store if listener executed successfully:
                 dataStore.put(entry.getKey(), entry.getValue());
             }

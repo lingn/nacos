@@ -24,12 +24,14 @@ import com.alibaba.nacos.core.distributed.distro.entity.DistroKey;
 import com.alibaba.nacos.core.utils.Loggers;
 
 /**
+ * Distro同步变更任务，此任务用于向其他节点发送本机数据
  * Distro sync change task.
  *
  * @author xiweng.yy
  */
 public class DistroSyncChangeTask extends AbstractDistroExecuteTask {
-    
+
+    // 此任务操作类型为变更
     private static final DataOperation OPERATION = DataOperation.CHANGE;
     
     public DistroSyncChangeTask(DistroKey distroKey, DistroComponentHolder distroComponentHolder) {
@@ -40,19 +42,29 @@ public class DistroSyncChangeTask extends AbstractDistroExecuteTask {
     protected DataOperation getDataOperation() {
         return OPERATION;
     }
-    
+
+    /**
+     * 执行不带回调的任务
+     * @return
+     */
     @Override
     protected boolean doExecute() {
+        // 获取同步的数据类型
         String type = getDistroKey().getResourceType();
+        // 获取同步数据
         DistroData distroData = getDistroData(type);
         if (null == distroData) {
             Loggers.DISTRO.warn("[DISTRO] {} with null data to sync, skip", toString());
             return true;
         }
-        return getDistroComponentHolder().findTransportAgent(type)
-                .syncData(distroData, getDistroKey().getTargetServer());
+        // 使用DistroTransportAgent同步数据
+        return getDistroComponentHolder().findTransportAgent(type).syncData(distroData, getDistroKey().getTargetServer());
     }
-    
+
+    /**
+     * 执行带回调的任务
+     * @param callback callback
+     */
     @Override
     protected void doExecuteWithCallback(DistroCallback callback) {
         String type = getDistroKey().getResourceType();

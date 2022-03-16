@@ -461,7 +461,9 @@ public class ServiceManager implements RecordListener<Service> {
                 service.getClusterMap().put(cluster.getName(), cluster);
             }
             service.validate();
-            
+
+            // 将service添加到namespace对应的ConcurrentSkipListMap中
+            // 将service添加到该service对应的listener的队列中
             putServiceAndInit(service);
             if (!local) {
                 addOrReplaceService(service);
@@ -480,13 +482,18 @@ public class ServiceManager implements RecordListener<Service> {
      * @throws Exception any error occurred in the process
      */
     public void registerInstance(String namespaceId, String serviceName, Instance instance) throws NacosException {
-        
+
+        // 1、创建一个Service对象
+        // 2、将service添加到namespace对应的ConcurrentSkipListMap中
+        // 3、将service添加到该service对应的listener的队列中
         createEmptyService(namespaceId, serviceName, instance.isEphemeral());
         
         Service service = getService(namespaceId, serviceName);
         
         checkServiceIsNull(service, namespaceId, serviceName);
-        
+
+        // 添加instance实例
+        // 将instance实例封装到Instances中，然后再添加到DataStore的Map中
         addInstance(namespaceId, serviceName, instance.isEphemeral(), instance);
     }
     
@@ -764,10 +771,12 @@ public class ServiceManager implements RecordListener<Service> {
      */
     public List<Instance> updateIpAddresses(Service service, String action, boolean ephemeral, Instance... ips)
             throws NacosException {
-        
+
+        // 第一次创建，这里为null
         Datum datum = consistencyService
                 .get(KeyBuilder.buildInstanceListKey(service.getNamespaceId(), service.getName(), ephemeral));
-        
+
+        // 第一次创建，这里应该没有
         List<Instance> currentIPs = service.allIPs(ephemeral);
         Map<String, Instance> currentInstances = new HashMap<>(currentIPs.size());
         Set<String> currentInstanceIds = CollectionUtils.set();
@@ -781,6 +790,7 @@ public class ServiceManager implements RecordListener<Service> {
         if (datum != null && null != datum.value) {
             instanceMap = setValid(((Instances) datum.value).getInstanceList(), currentInstances);
         } else {
+            // 第一次创建，走这里创建一个新map
             instanceMap = new HashMap<>(ips.length);
         }
         
@@ -872,6 +882,9 @@ public class ServiceManager implements RecordListener<Service> {
         service = getService(service.getNamespaceId(), service.getName());
         // 为该service对应的所有集群添加一个健康检查任务
         service.init();
+        // 如果该service还没对应的ConcurrentLinkedQueue，则初始化一个
+        // Service本身就是一个listener
+        // 将service添加到该service对应的listener的队列中
         consistencyService
                 .listen(KeyBuilder.buildInstanceListKey(service.getNamespaceId(), service.getName(), true), service);
         consistencyService

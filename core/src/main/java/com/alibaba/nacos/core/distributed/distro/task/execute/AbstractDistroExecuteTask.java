@@ -28,6 +28,7 @@ import com.alibaba.nacos.core.distributed.distro.monitor.DistroRecordsHolder;
 import com.alibaba.nacos.core.utils.Loggers;
 
 /**
+ * 抽象的执行任务，定义了任务处理流程
  * Abstract distro execute task.
  *
  * @author xiweng.yy
@@ -53,29 +54,35 @@ public abstract class AbstractDistroExecuteTask extends AbstractExecuteTask {
     
     @Override
     public void run() {
+        // 获取被处理的数据资源类型
         String type = getDistroKey().getResourceType();
+        // 根据类型获取数据传输代理
         DistroTransportAgent transportAgent = distroComponentHolder.findTransportAgent(type);
         if (null == transportAgent) {
             Loggers.DISTRO.warn("No found transport agent for type [{}]", type);
             return;
         }
         Loggers.DISTRO.info("[DISTRO-START] {}", toString());
+        // 判断代理对象是否支持回调
         if (transportAgent.supportCallbackTransport()) {
             doExecuteWithCallback(new DistroExecuteCallback());
         } else {
             executeDistroTask();
         }
     }
-    
+
+    // 执行任务
     private void executeDistroTask() {
         try {
             boolean result = doExecute();
             if (!result) {
+                // 执行失败之后，进行失败处理
                 handleFailedTask();
             }
             Loggers.DISTRO.info("[DISTRO-END] {} result: {}", toString(), result);
         } catch (Exception e) {
             Loggers.DISTRO.warn("[DISTRO] Sync data change failed.", e);
+            // 执行失败任务，进行失败处理
             handleFailedTask();
         }
     }
@@ -103,9 +110,11 @@ public abstract class AbstractDistroExecuteTask extends AbstractExecuteTask {
     
     /**
      * Handle failed task.
+     * 处理失败的任务
      */
     protected void handleFailedTask() {
         String type = getDistroKey().getResourceType();
+        // 使用失败任务处理器进行重试
         DistroFailedTaskHandler failedTaskHandler = distroComponentHolder.findFailedTaskHandler(type);
         if (null == failedTaskHandler) {
             Loggers.DISTRO.warn("[DISTRO] Can't find failed task for type {}, so discarded", type);

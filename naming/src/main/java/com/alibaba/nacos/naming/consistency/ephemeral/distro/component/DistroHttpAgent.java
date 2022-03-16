@@ -63,9 +63,11 @@ public class DistroHttpAgent implements DistroTransportAgent {
     
     @Override
     public boolean syncVerifyData(DistroData verifyData, String targetServer) {
+        // 若本机节点缓存中没有targetServer，说明此节点已不具备服务能力，也没有报告的必要。
         if (!memberManager.hasMember(targetServer)) {
             return true;
         }
+        // 发送checksum请求
         NamingProxy.syncCheckSums(verifyData.getContent(), targetServer);
         return true;
     }
@@ -85,6 +87,7 @@ public class DistroHttpAgent implements DistroTransportAgent {
                 toUpdateKeys = new ArrayList<>(1);
                 toUpdateKeys.add(key.getResourceKey());
             }
+            // 使用NamingProxy获取数据
             byte[] queriedData = NamingProxy.getData(toUpdateKeys, key.getTargetServer());
             return new DistroData(key, queriedData);
         } catch (Exception e) {

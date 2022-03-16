@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * v2版本的实现
  * Distro processor for v2.
  *
  * @author xiweng.yy
@@ -210,6 +211,7 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
     
     @Override
     public DistroData getDistroData(DistroKey distroKey) {
+        // 从Client管理器中获取指定Client
         Client client = clientManager.getClient(distroKey.getResourceKey());
         if (null == client) {
             return null;
@@ -221,6 +223,7 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
     @Override
     public DistroData getDatumSnapshot() {
         List<ClientSyncData> datum = new LinkedList<>();
+        // 从Client管理器中获取所有Client
         for (String each : clientManager.allClientId()) {
             Client client = clientManager.getClient(each);
             if (null == client || !client.isEphemeral()) {
@@ -237,6 +240,7 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
     @Override
     public List<DistroData> getVerifyData() {
         List<DistroData> result = new LinkedList<>();
+        // 从Client管理器中获取所有Client
         for (String each : clientManager.allClientId()) {
             Client client = clientManager.getClient(each);
             if (null == client || !client.isEphemeral()) {

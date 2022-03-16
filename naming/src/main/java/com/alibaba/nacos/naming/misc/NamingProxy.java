@@ -71,7 +71,8 @@ public class NamingProxy {
             headers.put(HttpHeaderConsts.CLIENT_VERSION_HEADER, VersionUtils.version);
             headers.put(HttpHeaderConsts.USER_AGENT_HEADER, UtilsAndCommons.SERVER_VERSION);
             headers.put(HttpHeaderConsts.CONNECTION, "Keep-Alive");
-            
+
+            // 请求示例：http://10.53.126.16:8848/nacos/v1/ns/distro/checksum?source=10.53.155.22:8848
             HttpClient.asyncHttpPutLarge(
                     "http://" + server + EnvUtil.getContextPath() + UtilsAndCommons.NACOS_NAMING_CONTEXT
                             + TIMESTAMP_SYNC_URL + "?source=" + NetUtils.localServer(), headers, checksums,
@@ -111,13 +112,16 @@ public class NamingProxy {
      * @throws Exception exception
      */
     public static byte[] getData(List<String> keys, String server) throws Exception {
-        
+
+        // 组装http请求参数
         Map<String, String> params = new HashMap<>(8);
         params.put("keys", StringUtils.join(keys, ","));
+        // 发送http请求
         RestResult<String> result = HttpClient.httpGetLarge(
                 "http://" + server + EnvUtil.getContextPath() + UtilsAndCommons.NACOS_NAMING_CONTEXT + DATA_GET_URL,
                 new HashMap<>(8), JacksonUtils.toJson(params));
-        
+
+        // 处理请求结果
         if (result.ok()) {
             return result.getData().getBytes();
         }

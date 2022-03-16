@@ -49,6 +49,7 @@ public abstract class AbstractDynamicConfig extends Subscriber<ServerConfigChang
     
     private void resetConfig() {
         try {
+            // 尝试从环境信息中获取配置
             getConfigFromEnv();
             Loggers.CORE.info("Get {} config from env, {}", configName, printConfig());
         } catch (Exception e) {

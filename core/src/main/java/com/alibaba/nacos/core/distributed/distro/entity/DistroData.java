@@ -24,11 +24,14 @@ import com.alibaba.nacos.consistency.DataOperation;
  * @author xiweng.yy
  */
 public class DistroData {
-    
+
+    // 数据的key
     private DistroKey distroKey;
-    
+
+    // 数据的操作类型，也可以理解为是什么操作产生了此数据，或此数据用于什么操作
     private DataOperation type;
-    
+
+    // 数据的字节数组
     private byte[] content;
     
     public DistroData() {

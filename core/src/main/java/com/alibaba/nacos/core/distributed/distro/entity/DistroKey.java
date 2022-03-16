@@ -20,15 +20,19 @@ import java.util.Objects;
 
 /**
  * Distro key.
+ * DistroData的key对象，可以包含较多的属性
  *
  * @author xiweng.yy
  */
 public class DistroKey {
-    
+
+    // 数据本身的key
     private String resourceKey;
-    
+
+    // 数据的类型
     private String resourceType;
-    
+
+    // 数据传输的目标服务器
     private String targetServer;
     
     public DistroKey() {

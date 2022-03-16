@@ -17,6 +17,9 @@
 package com.alibaba.nacos.core.distributed.distro;
 
 /**
+ * Distro常量配置
+ * 主要定义了一些关于任务执行时长的可配置的配置名称和对应的默认值
+ * 具体的使用，可以参考DistroConfig
  * Distro constants.
  *
  * @author xiweng.yy

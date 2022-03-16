@@ -24,18 +24,21 @@ import com.alibaba.nacos.core.distributed.distro.task.execute.DistroExecuteTaskE
 import org.springframework.stereotype.Component;
 
 /**
+ * Distro任务引擎持有者，用于管理不同类型的任务执行引擎
  * Distro task engine holder.
  *
  * @author xiweng.yy
  */
 @Component
 public class DistroTaskEngineHolder {
-    
+
+    // 延迟任务执行引擎
     private final DistroDelayTaskExecuteEngine delayTaskExecuteEngine = new DistroDelayTaskExecuteEngine();
-    
+    // 非延迟任务执行引擎
     private final DistroExecuteTaskExecuteEngine executeWorkersManager = new DistroExecuteTaskExecuteEngine();
-    
+
     public DistroTaskEngineHolder(DistroComponentHolder distroComponentHolder) {
+        // 为延迟任务执行引擎添加默认任务处理器
         DistroDelayTaskProcessor defaultDelayTaskProcessor = new DistroDelayTaskProcessor(this, distroComponentHolder);
         delayTaskExecuteEngine.setDefaultTaskProcessor(defaultDelayTaskProcessor);
     }
@@ -47,7 +50,12 @@ public class DistroTaskEngineHolder {
     public DistroExecuteTaskExecuteEngine getExecuteWorkersManager() {
         return executeWorkersManager;
     }
-    
+
+    /**
+     * 为延迟任务添加默认任务处理器
+     * @param key          处理器向容器保存时的key
+     * @param nacosTaskProcessor 处理器对象
+     */
     public void registerNacosTaskProcessor(Object key, NacosTaskProcessor nacosTaskProcessor) {
         this.delayTaskExecuteEngine.addProcessor(key, nacosTaskProcessor);
     }

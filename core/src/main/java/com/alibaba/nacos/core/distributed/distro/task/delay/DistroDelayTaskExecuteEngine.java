@@ -22,6 +22,7 @@ import com.alibaba.nacos.core.distributed.distro.entity.DistroKey;
 import com.alibaba.nacos.core.utils.Loggers;
 
 /**
+ * 延迟任务执行引擎
  * Distro delay task execute engine.
  *
  * @author xiweng.yy
@@ -34,6 +35,7 @@ public class DistroDelayTaskExecuteEngine extends NacosDelayTaskExecuteEngine {
     
     @Override
     public void addProcessor(Object key, NacosTaskProcessor taskProcessor) {
+        // 构建当前任务的key
         Object actualKey = getActualKey(key);
         super.addProcessor(actualKey, taskProcessor);
     }

@@ -23,19 +23,24 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * Distro组件持有者，内部定义了一些容器（HashMap）来存储Distro协议需要用到的数据，相当于一个大管家
  * Distro component holder.
  *
  * @author xiweng.yy
  */
 @Component
 public class DistroComponentHolder {
-    
+
+    // 存储不同类型的DistroData传输对象
     private final Map<String, DistroTransportAgent> transportAgentMap = new HashMap<>();
-    
+
+    // 存储不同类型的DistroData装载容器
     private final Map<String, DistroDataStorage> dataStorageMap = new HashMap<>();
-    
+
+    // 存储不同类型的Distro失败任务处理器
     private final Map<String, DistroFailedTaskHandler> failedTaskHandlerMap = new HashMap<>();
-    
+
+    // 存储不同类型的DistroData数据处理器
     private final Map<String, DistroDataProcessor> dataProcessorMap = new HashMap<>();
     
     public DistroTransportAgent findTransportAgent(String type) {

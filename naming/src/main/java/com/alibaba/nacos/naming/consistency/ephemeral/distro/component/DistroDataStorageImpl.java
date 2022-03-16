@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * v1版本的实现
  * Distro data storage impl.
  *
  * @author xiweng.yy
@@ -89,11 +90,15 @@ public class DistroDataStorageImpl implements DistroDataStorage {
         if (ApplicationUtils.getBean(UpgradeJudgement.class).isUseGrpcFeatures()) {
             return Collections.emptyList();
         }
+        // 用于保存属于当前节点处理的，且数据真实有效的Service
         Map<String, String> keyChecksums = new HashMap<>(64);
+        // 遍历当前节点已有的datastore
         for (String key : dataStore.keys()) {
+            // 若当前的服务不是本机处理，则排除
             if (!distroMapper.responsible(KeyBuilder.getServiceName(key))) {
                 continue;
             }
+            // 若当key对应的数据为空，则排除
             Datum datum = dataStore.get(key);
             if (datum == null) {
                 continue;
@@ -103,8 +108,10 @@ public class DistroDataStorageImpl implements DistroDataStorage {
         if (keyChecksums.isEmpty()) {
             return Collections.emptyList();
         }
-        DistroKey distroKey = new DistroKey(KeyBuilder.RESOURCE_KEY_CHECKSUM, KeyBuilder.INSTANCE_LIST_KEY_PREFIX);
+        // 构建DistroData
+        DistroKey distroKey = new DistroKey("checksum", KeyBuilder.INSTANCE_LIST_KEY_PREFIX);
         DistroData data = new DistroData(distroKey, ApplicationUtils.getBean(Serializer.class).serialize(keyChecksums));
+        // 设置当前操作类型为Verify
         data.setType(DataOperation.VERIFY);
         return Collections.singletonList(data);
     }

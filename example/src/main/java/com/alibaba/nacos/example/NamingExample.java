@@ -42,12 +42,15 @@ public class NamingExample {
     public static void main(String[] args) throws NacosException, InterruptedException {
         
         Properties properties = new Properties();
-        properties.setProperty("serverAddr", System.getProperty("serverAddr"));
-        properties.setProperty("namespace", System.getProperty("namespace"));
+//        properties.setProperty("serverAddr", System.getProperty("serverAddr"));
+//        properties.setProperty("namespace", System.getProperty("namespace"));
+
+        properties.setProperty("serverAddr", "127.0.0.1:8848");
+        properties.setProperty("namespace", "weblnn");
         
         NamingService naming = NamingFactory.createNamingService(properties);
         
-        naming.registerInstance("nacos.test.3", "11.11.11.11", 8888, "TEST1");
+        naming.registerInstance("nacos.test.3", "127.0.0.1", 8888, "TEST1");
         
         System.out.println("instances after register: " + naming.getAllInstances("nacos.test.3"));
         
@@ -77,12 +80,12 @@ public class NamingExample {
             }
         });
     
-        naming.deregisterInstance("nacos.test.3", "11.11.11.11", 8888, "TEST1");
+//        naming.deregisterInstance("nacos.test.3", "11.11.11.11", 8888, "TEST1");
         
         Thread.sleep(1000);
     
         System.out.println("instances after deregister: " + naming.getAllInstances("nacos.test.3"));
         
-        Thread.sleep(1000);
+        Thread.sleep(100000000);
     }
 }

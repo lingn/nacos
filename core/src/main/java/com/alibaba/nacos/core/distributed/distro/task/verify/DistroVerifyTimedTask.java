@@ -28,6 +28,11 @@ import com.alibaba.nacos.core.utils.Loggers;
 import java.util.List;
 
 /**
+ * 定时验证任务，此任务在启动时延迟5秒，间隔5秒执行。
+ * 主要用于为每个节点创建一个数据验证的执行任务DistroVerifyExecuteTask。
+ * 它的数据处理维度是Member
+ *
+ * 启动Distro协议的数据验证流程
  * Timed to start distro verify task.
  *
  * @author xiweng.yy
@@ -50,11 +55,14 @@ public class DistroVerifyTimedTask implements Runnable {
     @Override
     public void run() {
         try {
+            // 获取除自身节点之外的其他节点
             List<Member> targetServer = serverMemberManager.allMembersWithoutSelf();
             if (Loggers.DISTRO.isDebugEnabled()) {
                 Loggers.DISTRO.debug("server list is: {}", targetServer);
             }
+            // 每一种类型的数据，都要向其他节点发起验证
             for (String each : distroComponentHolder.getDataStorageTypes()) {
+                // 对dataStorage内的数据进行验证
                 verifyForDataStorage(each, targetServer);
             }
         } catch (Exception e) {
@@ -63,23 +71,25 @@ public class DistroVerifyTimedTask implements Runnable {
     }
     
     private void verifyForDataStorage(String type, List<Member> targetServer) {
+        // 获取数据类型
         DistroDataStorage dataStorage = distroComponentHolder.findDataStorage(type);
+        // 若数据还未同步完毕则不处理
         if (!dataStorage.isFinishInitial()) {
-            Loggers.DISTRO.warn("data storage {} has not finished initial step, do not send verify data",
-                    dataStorage.getClass().getSimpleName());
+            Loggers.DISTRO.warn("data storage {} has not finished initial step, do not send verify data", dataStorage.getClass().getSimpleName());
             return;
         }
+        // ① 获取验证数据
         List<DistroData> verifyData = dataStorage.getVerifyData();
         if (null == verifyData || verifyData.isEmpty()) {
             return;
         }
+        // 对每个节点开启一个异步的线程来执行
         for (Member member : targetServer) {
             DistroTransportAgent agent = distroComponentHolder.findTransportAgent(type);
             if (null == agent) {
                 continue;
             }
-            executeTaskExecuteEngine.addTask(member.getAddress() + type,
-                    new DistroVerifyExecuteTask(agent, verifyData, member.getAddress(), type));
+            executeTaskExecuteEngine.addTask(member.getAddress() + type, new DistroVerifyExecuteTask(agent, verifyData, member.getAddress(), type));
         }
     }
 }

@@ -20,6 +20,7 @@ import com.alibaba.nacos.core.config.AbstractDynamicConfig;
 import com.alibaba.nacos.sys.env.EnvUtil;
 
 /**
+ * Distro协议的配置信息
  * Distro configuration.
  *
  * @author xiweng.yy
@@ -29,25 +30,32 @@ public class DistroConfig extends AbstractDynamicConfig {
     private static final String DISTRO = "Distro";
     
     private static final DistroConfig INSTANCE = new DistroConfig();
-    
+
+    // 同步任务延迟时长（单位：毫秒）
     private long syncDelayMillis = DistroConstants.DEFAULT_DATA_SYNC_DELAY_MILLISECONDS;
-    
+    // 同步任务超时时长（单位：毫秒）
     private long syncTimeoutMillis = DistroConstants.DEFAULT_DATA_SYNC_TIMEOUT_MILLISECONDS;
-    
+    // 同步任务重试延迟时长（单位：毫秒）
     private long syncRetryDelayMillis = DistroConstants.DEFAULT_DATA_SYNC_RETRY_DELAY_MILLISECONDS;
-    
+    // 验证任务执行间隔时长（单位：毫秒）
     private long verifyIntervalMillis = DistroConstants.DEFAULT_DATA_VERIFY_INTERVAL_MILLISECONDS;
-    
+    // 验证任务超时时长（单位：毫秒）
     private long verifyTimeoutMillis = DistroConstants.DEFAULT_DATA_VERIFY_TIMEOUT_MILLISECONDS;
-    
+    // 首次同步数据重试延迟时长（单位：毫秒）
     private long loadDataRetryDelayMillis = DistroConstants.DEFAULT_DATA_LOAD_RETRY_DELAY_MILLISECONDS;
     
     private DistroConfig() {
         super(DISTRO);
     }
-    
+
+
+    /**
+     * 从环境信息中获取配置，若没有，则使用默认值
+     */
     @Override
     protected void getConfigFromEnv() {
+        // 从常量对象中获取key和default value
+
         syncDelayMillis = EnvUtil.getProperty(DistroConstants.DATA_SYNC_DELAY_MILLISECONDS, Long.class,
                 DistroConstants.DEFAULT_DATA_SYNC_DELAY_MILLISECONDS);
         syncTimeoutMillis = EnvUtil.getProperty(DistroConstants.DATA_SYNC_TIMEOUT_MILLISECONDS, Long.class,

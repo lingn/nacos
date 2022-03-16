@@ -26,9 +26,10 @@ import java.io.Serializable;
 public class DistroClientVerifyInfo implements Serializable {
     
     private static final long serialVersionUID = 2223964944788737629L;
-    
+
+    // 客户端ID
     private String clientId;
-    
+    // 修订版本号，验证时固定为0
     private long revision;
     
     public DistroClientVerifyInfo() {

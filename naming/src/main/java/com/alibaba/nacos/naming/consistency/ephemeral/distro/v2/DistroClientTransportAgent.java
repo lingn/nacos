@@ -43,6 +43,7 @@ import java.util.concurrent.Executor;
 
 /**
  * Distro transport agent for v2.
+ * v2版本的DistroData传输代理
  *
  * @author xiweng.yy
  */
@@ -57,12 +58,24 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
         this.clusterRpcClientProxy = clusterRpcClientProxy;
         this.memberManager = serverMemberManager;
     }
-    
+
+    /**
+     * 当前实现支持回调
+     * @return
+     */
     @Override
     public boolean supportCallbackTransport() {
         return true;
     }
-    
+
+    /**
+     * 向指定节点发送同步数据
+     * @param data         data
+     *                     被同步的数据
+     * @param targetServer target server
+     *                     同步的目标服务器
+     * @return
+     */
     @Override
     public boolean syncData(DistroData data, String targetServer) {
         if (isNoExistTarget(targetServer)) {
@@ -82,7 +95,13 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
         }
         return false;
     }
-    
+
+    /**
+     * 向指定节点发送回同步数据（支持回调）
+     * @param data         data
+     * @param targetServer target server
+     * @param callback     callback
+     */
     @Override
     public void syncData(DistroData data, String targetServer, DistroCallback callback) {
         if (isNoExistTarget(targetServer)) {
@@ -97,7 +116,13 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
             callback.onFailed(nacosException);
         }
     }
-    
+
+    /**
+     * 向指定节点发送验证数据
+     * @param verifyData   verify data
+     * @param targetServer target server
+     * @return
+     */
     @Override
     public boolean syncVerifyData(DistroData verifyData, String targetServer) {
         if (isNoExistTarget(targetServer)) {
@@ -119,24 +144,42 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
         }
         return false;
     }
-    
+
+    /**
+     * 向指定节点发送验证数据（支持回调）
+     * @param verifyData   verify data
+     * @param targetServer target server
+     * @param callback     callback
+     */
     @Override
     public void syncVerifyData(DistroData verifyData, String targetServer, DistroCallback callback) {
+        // 若此节点不在当前节点缓存中，直接返回，因为可能下线、或者过期，不需要验证了
         if (isNoExistTarget(targetServer)) {
             callback.onSuccess();
-            return;
         }
+        // 构建请求对象
         DistroDataRequest request = new DistroDataRequest(verifyData, DataOperation.VERIFY);
         Member member = memberManager.find(targetServer);
         try {
+            // 创建一个回调对象（Wrapper实现了RequestCallBack接口）
             DistroVerifyCallbackWrapper wrapper = new DistroVerifyCallbackWrapper(targetServer,
                     verifyData.getDistroKey().getResourceKey(), callback, member);
+            // 使用集群Rpc请求对象发送异步任务
             clusterRpcClientProxy.asyncRequest(member, request, wrapper);
         } catch (NacosException nacosException) {
             callback.onFailed(nacosException);
         }
+
     }
-    
+
+    /**
+     * 从指定节点获取数据
+     * @param key          key of data
+     *                     需要获取数据的key
+     * @param targetServer target server
+     *                     远端节点地址
+     * @return
+     */
     @Override
     public DistroData getData(DistroKey key, String targetServer) {
         Member member = memberManager.find(targetServer);
@@ -163,7 +206,12 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
             throw new DistroException("[DISTRO-FAILED] Get distro data failed! ", e);
         }
     }
-    
+
+    /**
+     * 从指定节点获取快照数据
+     * @param targetServer target server.
+     * @return
+     */
     @Override
     public DistroData getDatumSnapshot(String targetServer) {
         Member member = memberManager.find(targetServer);
@@ -198,7 +246,10 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
     private boolean checkResponse(Response response) {
         return ResponseCode.SUCCESS.getCode() == response.getResultCode();
     }
-    
+
+    /**
+     * rpc请求回调包装器
+     */
     private class DistroRpcCallbackWrapper implements RequestCallBack<Response> {
         
         private final DistroCallback distroCallback;
@@ -236,7 +287,10 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
             distroCallback.onFailed(e);
         }
     }
-    
+
+    /**
+     * 验证数据回调包装器
+     */
     private class DistroVerifyCallbackWrapper implements RequestCallBack<Response> {
         
         private final String targetServer;
@@ -272,6 +326,7 @@ public class DistroClientTransportAgent implements DistroTransportAgent {
                 distroCallback.onSuccess();
             } else {
                 Loggers.DISTRO.info("Target {} verify client {} failed, sync new client", targetServer, clientId);
+                // 验证失败之后发布事件
                 NotifyCenter.publishEvent(new ClientEvent.ClientVerifyFailedEvent(clientId, targetServer));
                 NamingTpsMonitor.distroVerifyFail(member.getAddress(), member.getIp());
                 distroCallback.onFailed(null);
