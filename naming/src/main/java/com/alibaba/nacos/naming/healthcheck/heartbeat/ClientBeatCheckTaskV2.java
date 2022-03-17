@@ -29,6 +29,9 @@ import com.alibaba.nacos.sys.utils.ApplicationUtils;
 import java.util.Collection;
 
 /**
+ * 虽然它继承了NacosHealthCheckTask，但内部只使用了InstanceBeatCheckTaskInterceptorChain，
+ * 没有使用HealthCheckInterceptorChain, 按理说应该划分到"心跳检查类的被拦截对象" 这个类别的。
+ * 不知道为何这样设计
  * Client beat check task of service for version 2.x.
  *
  * @author nkorange
@@ -38,7 +41,10 @@ public class ClientBeatCheckTaskV2 extends AbstractExecuteTask implements BeatCh
     private final IpPortBasedClient client;
     
     private final String taskId;
-    
+
+    /**
+     * 使用拦截器链
+     */
     private final InstanceBeatCheckTaskInterceptorChain interceptorChain;
     
     public ClientBeatCheckTaskV2(IpPortBasedClient client) {
@@ -64,10 +70,13 @@ public class ClientBeatCheckTaskV2 extends AbstractExecuteTask implements BeatCh
     @Override
     public void doHealthCheck() {
         try {
+            // 获取所有的Service
             Collection<Service> services = client.getAllPublishedService();
             for (Service each : services) {
+                // 获取Service对应的InstancePublishInfo
                 HealthCheckInstancePublishInfo instance = (HealthCheckInstancePublishInfo) client
                         .getInstancePublishInfo(each);
+                // 创建一个InstanceBeatCheckTask，并交由拦截器链处理
                 interceptorChain.doInterceptor(new InstanceBeatCheckTask(client, each, instance));
             }
         } catch (Exception e) {

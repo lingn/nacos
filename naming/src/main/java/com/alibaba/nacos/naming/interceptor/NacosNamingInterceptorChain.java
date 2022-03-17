@@ -17,6 +17,8 @@
 package com.alibaba.nacos.naming.interceptor;
 
 /**
+ * 定义了拦截器链对象应该具有的基本行为：添加拦截器、执行拦截器
+ * Nacos Naming模块的拦截器链接口，拦截器链用于存储并管理多个拦截器
  * Nacos naming interceptor chain.
  *
  * @author xiweng.yy
@@ -25,6 +27,7 @@ public interface NacosNamingInterceptorChain<T extends Interceptable> {
     
     /**
      * Add interceptor.
+     * 添加指定类型的拦截器对象
      *
      * @param interceptor interceptor
      */
@@ -32,6 +35,7 @@ public interface NacosNamingInterceptorChain<T extends Interceptable> {
     
     /**
      * Do intercept by added interceptors.
+     * 执行拦截的业务操作
      *
      * @param object be interceptor object
      */

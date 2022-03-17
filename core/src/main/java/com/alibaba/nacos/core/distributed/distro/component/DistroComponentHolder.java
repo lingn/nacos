@@ -23,7 +23,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Distro组件持有者，内部定义了一些容器（HashMap）来存储Distro协议需要用到的数据，相当于一个大管家
+ * Distro组件持有者
+ * 内部定义了一些容器（HashMap）来存储Distro协议需要用到的数据
+ * 相当于一个大管家
  * Distro component holder.
  *
  * @author xiweng.yy

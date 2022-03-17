@@ -157,33 +157,74 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
     
     private void handlerClientSyncData(ClientSyncData clientSyncData) {
         Loggers.DISTRO.info("[Client-Add] Received distro client sync data {}", clientSyncData.getClientId());
+        // 因为是同步数据，因此创建IpPortBasedClient，并缓存
         clientManager.syncClientConnected(clientSyncData.getClientId(), clientSyncData.getAttributes());
         Client client = clientManager.getClient(clientSyncData.getClientId());
+        // 升级此客户端的服务信息
         upgradeClient(client, clientSyncData);
     }
-    
+
+    /*
+        ClientSyncData示例数据
+
+        clientSyncData = {ClientSyncData@12737}
+        clientId = "10.55.56.1:8888#true"
+        attributes = {ClientSyncAttributes@12740}
+        namespaces = {ArrayList@12741}  size = 2
+            0 = "public"
+            1 = "public"
+        groupNames = {ArrayList@12742}  size = 2
+            0 = "DEFAULT_GROUP"
+            1 = "DEFAULT_GROUP"
+        serviceNames = {ArrayList@12743}  size = 2
+            0 = "SERVICE_01"
+            1 = "SERVICE_02"
+        instancePublishInfos = {ArrayList@12744}  size = 2
+            0 = {InstancePublishInfo@12941} "InstancePublishInfo{ip='10.55.56.1', port=8888, healthy=false}"
+            1 = {InstancePublishInfo@12942} "InstancePublishInfo{ip='10.55.56.1', port=8888, healthy=false}"
+     */
+    // 通过示例数据可以看出在10.55.56.1这个客户端中有两个服务，他们都在同一个namespace、同一个group中，
+    // 因为InstancePublishInfo是和Service一对一的关系，而一个客户端下的服务IP一定和客户端的IP是一致的，所以也会存在两条instance信息。
+    // upgradeClient的主要功能就是，将从其他节点获取的所有注册的服务注册到当前节点内。
     private void upgradeClient(Client client, ClientSyncData clientSyncData) {
+        // 当前处理的远端节点中的数据集合
+        // 获取所有的namespace
         List<String> namespaces = clientSyncData.getNamespaces();
+        // 获取所有的groupNames
         List<String> groupNames = clientSyncData.getGroupNames();
+        // 获取所有的serviceNames
         List<String> serviceNames = clientSyncData.getServiceNames();
+        // 获取所有的instance
         List<InstancePublishInfo> instances = clientSyncData.getInstancePublishInfos();
+        // 已同步的服务集合
         Set<Service> syncedService = new HashSet<>();
+        // 处理逻辑和ClientSyncData存储的对象有关系
+        // 此处是存放的以Service为维度的信息，它将一个Service的全部信息分别保存，并保证所有列表中的数据顺序一致。
         for (int i = 0; i < namespaces.size(); i++) {
+            // 从获取的数据中构建一个Service对象
             Service service = Service.newService(namespaces.get(i), groupNames.get(i), serviceNames.get(i));
             Service singleton = ServiceManager.getInstance().getSingleton(service);
+            // 标记此service已被处理
             syncedService.add(singleton);
+            // 获取当前的实例
             InstancePublishInfo instancePublishInfo = instances.get(i);
+            // 判断是否已经包含当前实例
             if (!instancePublishInfo.equals(client.getInstancePublishInfo(singleton))) {
+                // 不包含则添加
                 client.addServiceInstance(singleton, instancePublishInfo);
-                NotifyCenter.publishEvent(
-                        new ClientOperationEvent.ClientRegisterServiceEvent(singleton, client.getClientId()));
+                // 当前节点发布服务注册事件
+                NotifyCenter.publishEvent(new ClientOperationEvent.ClientRegisterServiceEvent(singleton, client.getClientId()));
             }
         }
+        // 若当前client内部已发布的service不在本次同步的列表内，说明已经过时了，要删掉
         for (Service each : client.getAllPublishedService()) {
             if (!syncedService.contains(each)) {
                 client.removeServiceInstance(each);
-                NotifyCenter.publishEvent(
-                        new ClientOperationEvent.ClientDeregisterServiceEvent(each, client.getClientId()));
+                // 发布客户端下线事件
+                // TODO 这里有个疑问，首次同步数据只会执行一次拉取（若拉取失败则会再次拉取，若拉取过后没有数据也不会再次拉取），
+                //  而且拉取的是某个节点负责的服务数据，为何当前节点要发布事件呢？服务的状态维护不是应该由它负责的节点来维护嘛，
+                //  比如我拉取的A服务是B节点的，我同步过来就OK了，如果A服务下线了，B节点来触发变更不就行了。然后再通知其他节点下线。
+                NotifyCenter.publishEvent(new ClientOperationEvent.ClientDeregisterServiceEvent(each, client.getClientId()));
             }
         }
     }
@@ -201,9 +242,12 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
     
     @Override
     public boolean processSnapshot(DistroData distroData) {
+        // 反序列化获取的DistroData为ClientSyncDatumSnapshot
         ClientSyncDatumSnapshot snapshot = ApplicationUtils.getBean(Serializer.class)
                 .deserialize(distroData.getContent(), ClientSyncDatumSnapshot.class);
+        // 处理结果集，这里将返回远程节点负责的所有client以及client下面的service、instance信息
         for (ClientSyncData each : snapshot.getClientSyncDataList()) {
+            // 每次处理一个client
             handlerClientSyncData(each);
         }
         return true;

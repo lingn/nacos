@@ -26,7 +26,8 @@ import com.alibaba.nacos.naming.interceptor.AbstractNamingInterceptorChain;
 public class InstanceBeatCheckTaskInterceptorChain extends AbstractNamingInterceptorChain<InstanceBeatCheckTask> {
     
     private static final InstanceBeatCheckTaskInterceptorChain INSTANCE = new InstanceBeatCheckTaskInterceptorChain();
-    
+
+    // 实例心跳检查器链负责加载AbstractBeatCheckInterceptor类型的拦截器
     private InstanceBeatCheckTaskInterceptorChain() {
         super(AbstractBeatCheckInterceptor.class);
     }

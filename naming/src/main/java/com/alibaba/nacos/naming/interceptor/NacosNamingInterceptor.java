@@ -17,6 +17,7 @@
 package com.alibaba.nacos.naming.interceptor;
 
 /**
+ * 拦截器对象
  * Nacos naming interceptor.
  *
  * @author xiweng.yy
@@ -25,6 +26,7 @@ public interface NacosNamingInterceptor<T extends Interceptable> {
     
     /**
      * Judge whether the input type is intercepted by this Interceptor.
+     * 此拦截器的实例将会判断传入的对象是否是他需要处理的类型，此方法可以实现不同拦截器处理不同对象的隔离操作
      *
      * <p>This method only should judge the object type whether need be do intercept. Not the intercept logic.
      *
@@ -35,6 +37,7 @@ public interface NacosNamingInterceptor<T extends Interceptable> {
     
     /**
      * Do intercept operation.
+     * 执行拦截操作
      *
      * <p>This method is the actual intercept operation.
      *
@@ -45,6 +48,7 @@ public interface NacosNamingInterceptor<T extends Interceptable> {
     
     /**
      * The order of interceptor. The lower the number, the earlier the execution.
+     * 拦截器排序，数字越低，优先级越高
      *
      * @return the order number of interceptor
      */

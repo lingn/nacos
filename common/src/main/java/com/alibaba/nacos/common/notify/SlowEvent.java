@@ -17,6 +17,8 @@
 package com.alibaba.nacos.common.notify;
 
 /**
+ * 称之为慢事件，可能因为所有的事件都共享同一个队列吧
+ * SlowEvent可以共享一个事件队列，也就是一个发布者可以同时管理多个事件的发布（区别于DefaultPublisher只能管理一个事件）
  * This event share one event-queue.
  *
  * @author <a href="mailto:liaochuntao@live.com">liaochuntao</a>

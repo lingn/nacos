@@ -41,7 +41,7 @@ public class ClientEvent extends Event {
     /**
      * Client changed event. Happened when {@code Client} add or remove service.
      */
-    public static class ClientChangedEvent extends ClientEvent {
+    public static class  ClientChangedEvent extends ClientEvent {
         
         private static final long serialVersionUID = 6440402443724824673L;
         

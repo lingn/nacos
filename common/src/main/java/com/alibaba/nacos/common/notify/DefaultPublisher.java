@@ -32,6 +32,24 @@ import static com.alibaba.nacos.common.notify.NotifyCenter.ringBufferSize;
 
 /**
  * The default event publisher implementation.
+ * 单事件发布者
+ * 一个发布者实例只能处理一种类型的事件
+ *
+ *                  外部调用publish（event）
+ *                         ↓
+ *                      queue ←-------------
+ *                         ↓               ↑
+ *         -------- 判断是否入队成功          ↑
+ *         ↓               ↓               ↑
+ *         ↓            入队成功       循环获取Event
+ *         ↓               ↓               ↑
+ *         ↓           EventHandler        ↑
+ *      入队失败           死循环  ----------→
+ *     直接通知订阅者         ↓
+ *         ↓         循环获取Subscriber
+ *         ↓                ↓
+ *         ↓-----------> Subscriber Set    -------→ notifySubscriber
+ *
  *
  * <p>Internally, use {@link ArrayBlockingQueue <Event/>} as a message staging queue.
  *
@@ -41,21 +59,23 @@ import static com.alibaba.nacos.common.notify.NotifyCenter.ringBufferSize;
 public class DefaultPublisher extends Thread implements EventPublisher {
     
     protected static final Logger LOGGER = LoggerFactory.getLogger(NotifyCenter.class);
-    
+
+    // 发布者是否初始化完毕
     private volatile boolean initialized = false;
-    
+    // 是否关闭了发布者
     private volatile boolean shutdown = false;
-    
+    // 事件的类型
     private Class<? extends Event> eventType;
-    
-    protected final ConcurrentHashSet<Subscriber> subscribers = new ConcurrentHashSet<>();
-    
+    // 订阅者列表
+    protected final ConcurrentHashSet<Subscriber> subscribers = new ConcurrentHashSet<Subscriber>();
+    // 队列最大容量
     private int queueMaxSize = -1;
-    
+    // 队列类型
     private BlockingQueue<Event> queue;
-    
+    // 最后一个事件的序列号
     protected volatile Long lastEventSequence = -1L;
-    
+
+    // 事件序列号更新对象，用于更新原子属性lastEventSequence
     private static final AtomicReferenceFieldUpdater<DefaultPublisher, Long> UPDATER = AtomicReferenceFieldUpdater
             .newUpdater(DefaultPublisher.class, Long.class, "lastEventSequence");
     
@@ -103,19 +123,23 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             // To ensure that messages are not lost, enable EventHandler when
             // waiting for the first Subscriber to register
             for (; ; ) {
+                // 线程终止条件判断
                 if (shutdown || hasSubscriber() || waitTimes <= 0) {
                     break;
                 }
                 ThreadUtils.sleep(1000L);
+                // 等待次数减1
                 waitTimes--;
             }
             
             for (; ; ) {
+                // 线程终止条件判断
                 if (shutdown) {
                     break;
                 }
                 final Event event = queue.take();
                 receiveEvent(event);
+                // 更新事件序列号
                 UPDATER.compareAndSet(this, lastEventSequence, Math.max(lastEventSequence, event.sequence()));
             }
         } catch (Throwable ex) {
@@ -171,15 +195,18 @@ public class DefaultPublisher extends Thread implements EventPublisher {
      * @param event {@link Event}.
      */
     void receiveEvent(Event event) {
+        // 获取当前事件的序列号，它是自增的
         final long currentEventSequence = event.sequence();
         
         if (!hasSubscriber()) {
             LOGGER.warn("[NotifyCenter] the {} is lost, because there is no subscriber.", event);
             return;
         }
-        
+
+        // 通知所有订阅了该事件的订阅者
         // Notification single event listener
         for (Subscriber subscriber : subscribers) {
+            // 判断订阅者是否忽略事件过期，判断当前事件是否被处理过（lastEventSequence初始化的值为-1，而Event的sequence初始化的值为0）
             // Whether to ignore expiration events
             if (subscriber.ignoreExpireEvent() && lastEventSequence > currentEventSequence) {
                 LOGGER.debug("[NotifyCenter] the {} is unacceptable to this subscriber, because had expire",
@@ -197,14 +224,17 @@ public class DefaultPublisher extends Thread implements EventPublisher {
     public void notifySubscriber(final Subscriber subscriber, final Event event) {
         
         LOGGER.debug("[NotifyCenter] the {} will received by {}", event, subscriber);
-        
+
+        // 为每个订阅者创建一个Runnable对象
         final Runnable job = () -> subscriber.onEvent(event);
+        // 使用订阅者的线程执行器
         final Executor executor = subscriber.executor();
         
         if (executor != null) {
             executor.execute(job);
         } else {
             try {
+                // 若订阅者没有自己的执行器，则直接执行run方法启动订阅者消费线程
                 job.run();
             } catch (Throwable e) {
                 LOGGER.error("Event callback exception: ", e);
